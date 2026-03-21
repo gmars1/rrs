@@ -1,0 +1,39 @@
+name: Build Windows EXE
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+
+jobs:
+  build:
+    name: Build Release (Windows)
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+
+      - name: Rust Cache
+        uses: swatinem/rust-cache@v2
+        # Этот экшен автоматически кеширует target/ и ~/.cargo/
+
+      - name: Build Release
+        run: cargo build --release --locked
+        # --locked гарантирует, что версии зависимостей будут точно как в Cargo.lock
+
+      - name: Upload Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: audio-controller-windows
+          path: |
+            target/release/*.exe
+          # Можно добавить и *.pdb если нужны отладочные символы
+          if-no-files-found: error

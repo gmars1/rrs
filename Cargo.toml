@@ -1,7 +1,54 @@
 [package]
-name = "linux_audio_test"
+name = "audio-controller"
 version = "0.1.0"
-edition = "2024"
+edition = "2021"
+description = "Cross-platform audio session controller for Linux, Windows, and Android"
+license = "MIT OR Apache-2.0"
 
 [dependencies]
-cpal = "0.17.3"
+
+
+[target.'cfg(target_os = "windows")'.dependencies]
+
+
+windows = { version = "0.58", features = [
+
+    "Win32_Foundation",
+
+    "Win32_Media_Audio",
+
+    "Win32_System_Com",
+
+    "Win32_System_Com_StructuredStorage",
+
+    "Win32_System_Threading",
+
+    "Win32_System_ProcessStatus",
+
+    "Win32_UI_Shell_PropertiesSystem",
+
+    "Win32_Devices_DeviceAndDriverInstallation",
+    "Win32_Devices_FunctionDiscovery",
+    "Win32_System_Variant",
+] }
+
+
+
+[target.'cfg(target_os = "linux")'.dependencies]
+
+[target.'cfg(target_os = "android")'.dependencies]
+jni = "0.21"
+ndk = "0.7"
+ndk-sys = "0.5"
+android_log = "0.1"
+
+[profile.release]
+opt-level = "z"  # Максимальное сжатие
+lto = true
+codegen-units = 1
+panic = "abort"
+strip = true
+
+[profile.dev]
+opt-level = 0
+debug = true
