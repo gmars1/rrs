@@ -12,7 +12,7 @@ pub use error::{WindowsError, WindowsResult};
 
 pub use session::WindowsSession;
 
-use crate::{AudioController, Session};
+use crate::{AudioController, ControllerError, Session};
 
 use std::sync::{Arc, Mutex};
 
@@ -103,6 +103,10 @@ impl AudioController for WindowsController {
             .collect())
     }
 
+    fn device_name(&self) -> &str {
+        &self.device_name
+    }
+
     fn refresh_sessions(&mut self) -> Result<(), ControllerError> {
         let mut enumerator = self
             .enumerator
@@ -185,6 +189,7 @@ impl Clone for WindowsController {
     fn clone(&self) -> Self {
         Self {
             enumerator: Arc::clone(&self.enumerator),
+            device_name: self.device_name.clone(),
         }
     }
 }

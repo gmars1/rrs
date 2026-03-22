@@ -99,7 +99,7 @@ impl From<WindowsError> for ControllerError {
             WindowsError::InvalidParameter => ControllerError::InvalidParameter,
             WindowsError::SessionExpired => ControllerError::SessionExpired,
             WindowsError::DeviceError(msg) => ControllerError::PlatformError(msg),
-            WindowsError::Unsupported(msg) => ControllerError::UnsupportedOperation,
+            WindowsError::Unsupported(_msg) => ControllerError::UnsupportedOperation,
             WindowsError::Other(msg) => ControllerError::Other(msg),
         }
     }

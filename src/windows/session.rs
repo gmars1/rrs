@@ -1,4 +1,4 @@
-use super::error::{WindowsError, WindowsResult};
+use super::error::WindowsResult;
 
 use std::ptr;
 
@@ -39,17 +39,16 @@ impl WindowsSession {
         };
 
         let simple_vol: ISimpleAudioVolume =
-            unsafe { <IAudioSessionControl2 as windows::core::Interface>::cast(&session_control)? };
+            <IAudioSessionControl2 as windows::core::Interface>::cast(&session_control)?;
 
         let volume = simple_vol.GetMasterVolume()?;
 
         let mute = simple_vol.GetMute()?.into();
 
-        let channel_count = match unsafe {
-            <IAudioSessionControl2 as windows::core::Interface>::cast::<IChannelAudioVolume>(
-                &session_control,
-            )
-        } {
+        let channel_count = match <IAudioSessionControl2 as windows::core::Interface>::cast::<
+            IChannelAudioVolume,
+        >(&session_control)
+        {
             Ok(channel_vol) => {
                 let channels = channel_vol.GetChannelCount()?;
                 if channels == 0 {

@@ -2,6 +2,8 @@ use super::error::WindowsResult;
 
 use super::session::WindowsSession;
 
+use crate::ControllerError;
+
 use std::collections::HashMap;
 
 use windows::core::Interface;
