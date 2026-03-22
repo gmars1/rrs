@@ -154,14 +154,7 @@ impl SessionEnumerator {
         let device_name = self.device_name.clone();
 
         let session_id = {
-            let raw_id_ptr = session_control.GetSessionIdentifier()?;
-
-            let raw_id = unsafe {
-                raw_id_ptr
-                    .to_string()
-                    .map_err(|e| ControllerError::from(e))?
-            };
-
+            let raw_id = session_control.GetSessionId()?;
             raw_id.Data1
         };
 

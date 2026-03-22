@@ -8,7 +8,7 @@ mod utils;
 
 pub use enumerator::{EnumeratorConfig, SessionEnumerator};
 
-pub use error::{WindowsError, WindowsResult};
+pub use error::WindowsError;
 
 pub use session::WindowsSession;
 

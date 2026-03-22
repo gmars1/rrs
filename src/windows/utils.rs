@@ -2,7 +2,7 @@ use windows::core::GUID;
 use windows::Win32::Foundation::{CloseHandle, HANDLE};
 use windows::Win32::Media::Audio::IMMDevice;
 use windows::Win32::System::Com::StructuredStorage::PropVariantClear;
-use windows::Win32::System::Com::Variant::PROPVARIANT;
+use windows::Win32::System::Com::PROPVARIANT;
 use windows::Win32::System::Com::{
     CoInitializeEx, CoUninitialize, COINIT_APARTMENTTHREADED, STGM_READ,
 };
