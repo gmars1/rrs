@@ -63,6 +63,8 @@ pub trait AudioController: Send + Sync {
     fn set_mute(&mut self, id: u32, mute: bool) -> Result<(), ControllerError>;
 
     fn refresh_sessions(&mut self) -> Result<(), ControllerError>;
+
+    fn device_name(&self) -> &str;
 }
 
 #[cfg(target_os = "windows")]
@@ -189,6 +191,10 @@ mod tests {
         fn refresh_sessions(&mut self) -> Result<(), ControllerError> {
             Ok(())
         }
+
+        fn device_name(&self) -> &str {
+            "Mock Device"
+        }
     }
 
     #[test]
@@ -216,7 +222,8 @@ mod tests {
 
         let session = sessions.iter().find(|s| s.id == 1).unwrap();
 
-        assert_eq!(session.volume, 0.8);
+        // Use approximate comparison due to floating point precision
+        assert!((session.volume - 0.8).abs() < 1e-6);
     }
 
     #[test]

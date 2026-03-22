@@ -1,3 +1,5 @@
+#![allow(clippy::print_literal)]
+
 #[cfg(any(target_os = "windows", target_os = "linux", target_os = "android"))]
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     use audio_controller::{AudioController, DefaultController};

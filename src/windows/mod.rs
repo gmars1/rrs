@@ -18,6 +18,7 @@ use std::sync::{Arc, Mutex};
 
 pub struct WindowsController {
     enumerator: Arc<Mutex<SessionEnumerator>>,
+    device_name: String,
 }
 
 impl WindowsController {
@@ -30,9 +31,12 @@ impl WindowsController {
             ControllerError::PlatformError(format!("Failed to create enumerator: {}", e))
         })?;
 
-        Ok(Self {
+        let mut controller = Self {
             enumerator: Arc::new(Mutex::new(enumerator)),
-        })
+            device_name: String::new(),
+        };
+        controller.refresh_sessions()?;
+        Ok(controller)
     }
 
     pub fn with_config(config: EnumeratorConfig) -> Result<Self, ControllerError> {
@@ -44,27 +48,39 @@ impl WindowsController {
             ControllerError::PlatformError(format!("Failed to create enumerator: {}", e))
         })?;
 
-        Ok(Self {
+        let mut controller = Self {
             enumerator: Arc::new(Mutex::new(enumerator)),
-        })
+            device_name: String::new(),
+        };
+        controller.refresh_sessions()?;
+        Ok(controller)
     }
 
-    pub fn device_name(&self) -> String {
-        self.enumerator.lock().unwrap().device_name().to_string()
+    pub fn device_name(&self) -> &str {
+        &self.device_name
     }
 
     pub fn windows_sessions(&self) -> Vec<WindowsSession> {
-        self.enumerator.lock().unwrap().sessions()
+        self.enumerator
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .sessions()
     }
 
     pub fn session_count(&self) -> usize {
-        self.enumerator.lock().unwrap().len()
+        self.enumerator
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .len()
     }
 }
 
 impl AudioController for WindowsController {
     fn list_sessions(&self) -> Result<Vec<Session>, ControllerError> {
-        let enumerator = self.enumerator.lock().unwrap();
+        let enumerator = self
+            .enumerator
+            .lock()
+            .map_err(|_| ControllerError::Other("Mutex poisoned".to_string()))?;
 
         Ok(enumerator
             .sessions()
@@ -88,11 +104,23 @@ impl AudioController for WindowsController {
     }
 
     fn refresh_sessions(&mut self) -> Result<(), ControllerError> {
-        let mut enumerator = self.enumerator.lock().unwrap();
+        let mut enumerator = self
+            .enumerator
+            .lock()
+            .map_err(|_| ControllerError::Other("Mutex poisoned".to_string()))?;
 
         unsafe {
             enumerator.refresh().map_err(|e| ControllerError::from(e))?;
         }
+
+        // Update cached device name
+        let enumerator = self
+            .enumerator
+            .lock()
+            .map_err(|_| ControllerError::Other("Mutex poisoned".to_string()))?;
+        self.device_name = enumerator.device_name().to_string();
+
+        Ok(())
     }
 
     fn set_volume(&mut self, id: u32, left: f32, right: f32) -> Result<(), ControllerError> {
@@ -103,7 +131,10 @@ impl AudioController for WindowsController {
             return Err(ControllerError::InvalidParameter);
         }
 
-        let enumerator = self.enumerator.lock().unwrap();
+        let enumerator = self
+            .enumerator
+            .lock()
+            .map_err(|_| ControllerError::Other("Mutex poisoned".to_string()))?;
 
         let session = enumerator
             .get_session(id)
@@ -121,7 +152,10 @@ impl AudioController for WindowsController {
             return Err(ControllerError::InvalidParameter);
         }
 
-        let enumerator = self.enumerator.lock().unwrap();
+        let enumerator = self
+            .enumerator
+            .lock()
+            .map_err(|_| ControllerError::Other("Mutex poisoned".to_string()))?;
 
         let session = enumerator
             .get_session(id)
@@ -137,10 +171,10 @@ impl AudioController for WindowsController {
 
 impl std::fmt::Debug for WindowsController {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let enumerator = self.enumerator.lock().unwrap();
+        let enumerator = self.enumerator.lock().unwrap_or_else(|e| e.into_inner());
 
         f.debug_struct("WindowsController")
-            .field("device_name", &enumerator.device_name())
+            .field("device_name", &self.device_name)
             .field("session_count", &enumerator.len())
             .field("config", &"See EnumeratorConfig".to_string())
             .finish()

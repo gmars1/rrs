@@ -5,9 +5,22 @@ use super::{AudioController, ControllerError, Session};
 
 pub struct LinuxController {
     sessions: HashMap<u32, Session>,
+    device_name: String,
 }
 
 impl LinuxController {
+    fn get_default_sink_name() -> Result<String, ControllerError> {
+        let output = Self::run_pactl(&["info"])?;
+        for line in output.lines() {
+            if line.trim().starts_with("Default Sink:") {
+                if let Some(name) = line.split(':').nth(1) {
+                    return Ok(name.trim().to_string());
+                }
+            }
+        }
+        Ok("default".to_string())
+    }
+
     fn check_pactl() -> Result<(), ControllerError> {
         let output = Command::new("which")
             .arg("pactl")
@@ -30,8 +43,10 @@ impl LinuxController {
 
         if !output.status.success() {
             let err = String::from_utf8_lossy(&output.stderr);
+            let code = output.status.code().unwrap_or(-1);
             return Err(ControllerError::PlatformError(format!(
-                "pactl error: {}",
+                "pactl failed (exit {}): {}",
+                code,
                 err.trim()
             )));
         }
@@ -101,7 +116,7 @@ impl LinuxController {
                         if let Some(percent_str) = percent_part.split('%').next() {
                             if let Some(vol_str) = percent_str.split('/').next_back() {
                                 if let Ok(vol) = vol_str.trim().parse::<u32>() {
-                                    current.volume = vol as f32 / 100.0;
+                                    current.volume = (vol as f32 / 100.0).clamp(0.0, 1.0);
                                 }
                             }
                         }
@@ -123,14 +138,21 @@ impl LinuxController {
 
     pub fn new() -> Result<Self, ControllerError> {
         Self::check_pactl()?;
-
-        Ok(Self {
+        let device_name = Self::get_default_sink_name()?;
+        let mut controller = Self {
             sessions: HashMap::new(),
-        })
+            device_name,
+        };
+        controller.refresh_sessions()?;
+        Ok(controller)
     }
 }
 
 impl AudioController for LinuxController {
+    fn device_name(&self) -> &str {
+        &self.device_name
+    }
+
     fn list_sessions(&self) -> Result<Vec<Session>, ControllerError> {
         Ok(self.sessions.values().cloned().collect())
     }
@@ -140,12 +162,12 @@ impl AudioController for LinuxController {
 
         let sessions = Self::parse_sessions(&output);
 
-        self.sessions.clear();
-
+        let mut new_map = HashMap::new();
         for session in sessions {
-            self.sessions.insert(session.id, session);
+            new_map.insert(session.id, session);
         }
 
+        self.sessions = new_map;
         Ok(())
     }
 
@@ -155,6 +177,10 @@ impl AudioController for LinuxController {
         }
         if !(0.0..=1.0).contains(&left) || !(0.0..=1.0).contains(&right) {
             return Err(ControllerError::InvalidParameter);
+        }
+
+        if !self.sessions.contains_key(&id) {
+            return Err(ControllerError::NotFound);
         }
 
         let avg = ((left + right) / 2.0 * 100.0).round() as u32;
@@ -175,6 +201,10 @@ impl AudioController for LinuxController {
     fn set_mute(&mut self, id: u32, mute: bool) -> Result<(), ControllerError> {
         if id == 0 {
             return Err(ControllerError::InvalidParameter);
+        }
+
+        if !self.sessions.contains_key(&id) {
+            return Err(ControllerError::NotFound);
         }
 
         if let Some(session) = self.sessions.get(&id) {

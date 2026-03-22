@@ -91,8 +91,6 @@ impl SessionEnumerator {
     }
 
     pub unsafe fn refresh(&mut self) -> WindowsResult<usize> {
-        self.sessions.clear();
-
         self.discover_sessions()?;
 
         Ok(self.sessions.len())
@@ -156,7 +154,11 @@ impl SessionEnumerator {
         let session_id = {
             let raw_id_ptr = session_control.GetSessionIdentifier()?;
 
-            let raw_id = unsafe { raw_id_ptr.to_string().map_err(|e| ControllerError::from(e))? };
+            let raw_id = unsafe {
+                raw_id_ptr
+                    .to_string()
+                    .map_err(|e| ControllerError::from(e))?
+            };
 
             raw_id.Data1
         };
@@ -255,5 +257,5 @@ mod tests {
             DeviceRole::Communications.as_erole(),
             Audio::eCommunications
         );
-}
+    }
 }
