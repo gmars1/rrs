@@ -153,7 +153,11 @@ impl SessionEnumerator {
 
         let session_id = {
             let raw_id_ptr = session_control.GetSessionIdentifier()?;
-            let id_string = unsafe { raw_id_ptr.to_string().map_err(|e| WindowsError::from(e))? };
+            let id_string = unsafe {
+                raw_id_ptr
+                    .to_string()
+                    .map_err(|e| WindowsError::Other(format!("UTF-16 conversion error: {}", e)))?
+            };
             // Use FNV-1a hash to convert string to u32
             let mut hash = 2166136261u32;
             for &b in id_string.as_bytes() {
