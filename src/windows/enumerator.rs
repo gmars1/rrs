@@ -1,4 +1,4 @@
-use super::error::WindowsResult;
+use super::error::{WindowsError, WindowsResult};
 
 use super::session::WindowsSession;
 
