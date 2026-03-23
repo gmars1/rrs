@@ -2,8 +2,6 @@ use super::error::WindowsResult;
 
 use super::session::WindowsSession;
 
-use crate::ControllerError;
-
 use std::collections::HashMap;
 
 use windows::core::Interface;
@@ -154,8 +152,15 @@ impl SessionEnumerator {
         let device_name = self.device_name.clone();
 
         let session_id = {
-            let raw_id = session_control.GetSessionId()?;
-            raw_id.Data1
+            let raw_id_ptr = session_control.GetSessionIdentifier()?;
+            let id_string = unsafe { raw_id_ptr.to_string().map_err(|e| WindowsError::from(e))? };
+            // Use FNV-1a hash to convert string to u32
+            let mut hash = 2166136261u32;
+            for &b in id_string.as_bytes() {
+                hash ^= b as u32;
+                hash = hash.wrapping_mul(16777619);
+            }
+            hash
         };
 
         match WindowsSession::new(session_id, session_control, &device_name) {
