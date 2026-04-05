@@ -97,24 +97,37 @@ impl SessionEnumerator {
     }
 
     unsafe fn discover_sessions(&mut self) -> WindowsResult<usize> {
+        eprintln!("[DEBUG] discover_sessions - CoCreateInstance...");
         let enumerator: Audio::IMMDeviceEnumerator =
             CoCreateInstance(&Audio::MMDeviceEnumerator, None, CLSCTX_ALL)?;
+        eprintln!("[DEBUG] discover_sessions - IMMDeviceEnumerator created");
 
         let role = self.config.device_role.as_erole();
-
+        eprintln!("[DEBUG] discover_sessions - GetDefaultAudioEndpoint...");
         let device = enumerator.GetDefaultAudioEndpoint(Audio::eRender, role)?;
+        eprintln!("[DEBUG] discover_sessions - device acquired");
 
         self.device_name = super::utils::get_device_name(&device);
+        eprintln!(
+            "[DEBUG] discover_sessions - device_name: {}",
+            self.device_name
+        );
 
+        eprintln!("[DEBUG] discover_sessions - Activate IAudioSessionManager2...");
         let manager: IAudioSessionManager2 = device.Activate(CLSCTX_ALL, None)?;
+        eprintln!("[DEBUG] discover_sessions - IAudioSessionManager2 activated");
 
+        eprintln!("[DEBUG] discover_sessions - GetSessionEnumerator...");
         let session_enumerator: IAudioSessionEnumerator = manager.GetSessionEnumerator()?;
+        eprintln!("[DEBUG] discover_sessions - session enumerator acquired");
 
         let count = session_enumerator.GetCount()?;
+        eprintln!("[DEBUG] discover_sessions - session count: {}", count);
 
         let mut target_sessions = HashMap::new();
 
         for i in 0..count {
+            eprintln!("[DEBUG] discover_sessions - getting session {}", i);
             match self.try_get_session(i, &session_enumerator) {
                 Ok(Some(session)) => {
                     if self.should_include_session(&session) {
@@ -131,6 +144,10 @@ impl SessionEnumerator {
         }
 
         self.sessions = target_sessions;
+        eprintln!(
+            "[DEBUG] discover_sessions - done, {} sessions",
+            self.sessions.len()
+        );
         Ok(self.sessions.len())
     }
 

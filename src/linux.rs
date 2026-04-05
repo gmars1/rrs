@@ -8,8 +8,6 @@ use super::{AudioController, ControllerError, Session};
 
 const PACTL_TIMEOUT: Duration = Duration::from_secs(5);
 
-const PACTL_TIMEOUT: Duration = Duration::from_secs(5);
-
 pub struct LinuxController {
     sessions: HashMap<u32, Session>,
     device_name: String,
@@ -43,13 +41,14 @@ impl LinuxController {
     }
 
     fn run_pactl(args: &[&str]) -> Result<String, ControllerError> {
-        let mut child = Command::new("pactl")
+        let child = Command::new("pactl")
             .args(args)
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
             .map_err(|e| ControllerError::PlatformError(e.to_string()))?;
 
+        let pid = child.id();
         let (tx, rx) = mpsc::channel();
 
         thread::spawn(move || {
@@ -57,14 +56,19 @@ impl LinuxController {
             let _ = tx.send(result);
         });
 
-        let output = rx.recv_timeout(PACTL_TIMEOUT).map_err(|_| {
-            let _ = child.kill();
-            ControllerError::PlatformError(format!(
-                "pactl {:?} timed out after {}s",
-                args,
-                PACTL_TIMEOUT.as_secs()
-            ))
-        })??;
+        let output = rx
+            .recv_timeout(PACTL_TIMEOUT)
+            .map_err(|_| {
+                let _ = std::process::Command::new("kill")
+                    .arg(pid.to_string())
+                    .output();
+                ControllerError::PlatformError(format!(
+                    "pactl {:?} timed out after {}s",
+                    args,
+                    PACTL_TIMEOUT.as_secs()
+                ))
+            })?
+            .map_err(|e| ControllerError::PlatformError(e.to_string()))?;
 
         if !output.status.success() {
             let err = String::from_utf8_lossy(&output.stderr);
