@@ -10,14 +10,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut controller =
         DefaultController::new().map_err(|e| format!("Failed to create controller: {}", e))?;
 
-    #[cfg(target_os = "linux")]
-    {
-        eprintln!(
-            "[DEBUG] Linux controller created, device: {}",
-            controller.device_name()
-        );
-    }
-
     #[cfg(target_os = "windows")]
     {
         eprintln!("[DEBUG] Windows controller created successfully");
@@ -32,60 +24,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .map_err(|e| format!("Failed to list sessions: {}", e))?;
 
     if sessions.is_empty() {
-        #[cfg(target_os = "windows")]
-        {
-            eprintln!("\n[DEBUG] No sessions found. Make sure:");
-            eprintln!("  - Audio applications are playing sound");
-            eprintln!("  - Running with appropriate permissions");
-            eprintln!("  - Windows Audio Service is running");
-            eprintln!("  - Using eConsole role (for better compatibility)");
-            eprintln!("  - Try running as Administrator (some apps are protected)");
-            if let Ok(ctrl) = DefaultController::new() {
-                eprintln!("  - Device: {}", ctrl.device_name());
-            }
-        }
-        #[cfg(target_os = "linux")]
-        {
-            eprintln!("\n[DEBUG] No sessions found. Make sure:");
-            eprintln!("  - pulseaudio is running");
-            eprintln!("  - pactl is installed (pulseaudio-utils)");
-            eprintln!("  - User is in pulse-access group or run with sudo");
-        }
         println!("No active audio sessions found.");
         return Ok(());
     }
 
-    #[cfg(target_os = "windows")]
-    {
-        eprintln!("[DEBUG] Found {} sessions", sessions.len());
-        eprintln!("[DEBUG] Device: {}", controller.device_name());
-    }
-
-    println!("\nActive sessions:");
-    println!(
-        "{:<4} {:<12} {:<20} {}",
-        "#", "PID", "Device", "Application"
-    );
-    println!("{}", "-".repeat(60));
-    for (i, session) in sessions.iter().enumerate() {
-        let pid = if session.pid > 0 {
-            session.pid.to_string()
-        } else {
-            "system".to_string()
-        };
-        let device = session.device.as_deref().unwrap_or("unknown");
-        let volume = format!("{:.0}%", session.volume * 100.0);
-        let mute = if session.mute { "MUTED" } else { "audible" };
-        println!(
-            "{:<4} {:<12} {:<20} {} (Volume: {}, {})",
-            i + 1,
-            pid,
-            device,
-            session.name,
-            volume,
-            mute
-        );
-    }
+    print_sessions(&sessions);
 
     loop {
         println!("\n=== Actions ===");
@@ -108,127 +51,122 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             break;
         }
 
-        if choice == "4" || choice == "6" {
-            if choice == "4" {
-                controller
-                    .refresh_sessions()
-                    .map_err(|e| format!("Failed to refresh sessions: {}", e))?;
+        if choice == "4" {
+            controller
+                .refresh_sessions()
+                .map_err(|e| format!("Failed to refresh sessions: {}", e))?;
 
-                sessions = controller
-                    .list_sessions()
-                    .map_err(|e| format!("Failed to list sessions: {}", e))?;
-                if sessions.is_empty() {
-                    println!("No sessions found after refresh.");
-                } else {
-                    println!("Sessions refreshed. Found {} sessions.", sessions.len());
-
-                    println!("\nActive sessions:");
-                    println!(
-                        "{:<4} {:<12} {:<20} {}",
-                        "#", "PID", "Device", "Application"
-                    );
-                    println!("{}", "-".repeat(60));
-                    for (i, session) in sessions.iter().enumerate() {
-                        let pid = if session.pid > 0 {
-                            session.pid.to_string()
-                        } else {
-                            "system".to_string()
-                        };
-                        let device = session.device.as_deref().unwrap_or("unknown");
-                        let volume = format!("{:.0}%", session.volume * 100.0);
-                        let mute = if session.mute { "MUTED" } else { "audible" };
-                        println!(
-                            "{:<4} {:<12} {:<20} {} (Volume: {}, {})",
-                            i + 1,
-                            pid,
-                            device,
-                            session.name,
-                            volume,
-                            mute
-                        );
-                    }
-                }
+            sessions = controller
+                .list_sessions()
+                .map_err(|e| format!("Failed to list sessions: {}", e))?;
+            if sessions.is_empty() {
+                println!("No sessions found after refresh.");
+            } else {
+                println!("Sessions refreshed. Found {} sessions.", sessions.len());
+                print_sessions(&sessions);
             }
+            continue;
+        }
 
-            if choice == "6" {
-                print!("Left volume (0-100): ");
-                io::stdout().flush()?;
-                let mut left_input = String::new();
-                io::stdin().read_line(&mut left_input)?;
-                let left: u32 = match left_input.trim().parse() {
-                    Ok(v) if v <= 100 => v,
-                    Ok(_) => {
-                        println!("Invalid value. Must be 0-100.");
-                        continue;
-                    }
-                    Err(_) => {
-                        println!("Please enter a valid number.");
-                        continue;
-                    }
-                };
-
-                print!("Right volume (0-100): ");
-                io::stdout().flush()?;
-                let mut right_input = String::new();
-                io::stdin().read_line(&mut right_input)?;
-                let right: u32 = match right_input.trim().parse() {
-                    Ok(v) if v <= 100 => v,
-                    Ok(_) => {
-                        println!("Invalid value. Must be 0-100.");
-                        continue;
-                    }
-                    Err(_) => {
-                        println!("Please enter a valid number.");
-                        continue;
-                    }
-                };
-
-                if sessions.is_empty() {
-                    println!("No sessions to act on.");
-                    continue;
-                }
-
-                print!("Select session number (1-{}): ", sessions.len());
-                io::stdout().flush()?;
-                let mut session_input = String::new();
-                io::stdin().read_line(&mut session_input)?;
-                let session_index: usize = match session_input.trim().parse() {
-                    Ok(num) if (1..=sessions.len()).contains(&num) => num - 1,
-                    Ok(_) => {
-                        println!("Invalid session number.");
-                        continue;
-                    }
-                    Err(_) => {
-                        println!("Please enter a valid number.");
-                        continue;
-                    }
-                };
-
-                let session_id = sessions[session_index].id;
-                let left_f = left as f32 / 100.0;
-                let right_f = right as f32 / 100.0;
-                if let Err(e) = controller.set_volume(session_id, left_f, right_f) {
-                    println!("Failed to set balance: {}", e);
-                } else {
-                    println!("Balance set: L={}% R={}", left, right);
-                }
+        if choice == "6" {
+            if sessions.is_empty() {
+                println!("No sessions to act on.");
                 continue;
             }
 
+            print!("Select session number (1-{}): ", sessions.len());
+            io::stdout().flush()?;
+            let mut session_input = String::new();
+            io::stdin().read_line(&mut session_input)?;
+            let session_index: usize = match session_input.trim().parse() {
+                Ok(num) if (1..=sessions.len()).contains(&num) => num - 1,
+                Ok(_) => {
+                    println!("Invalid session number.");
+                    continue;
+                }
+                Err(_) => {
+                    println!("Please enter a valid number.");
+                    continue;
+                }
+            };
+
+            let session = &sessions[session_index];
+            let cur_l = (session.left_volume * 100.0).round() as u32;
+            let cur_r = (session.right_volume * 100.0).round() as u32;
+            let ch = if session.channel_count <= 1 {
+                "mono"
+            } else {
+                "stereo"
+            };
+            println!(
+                "Selected: {} (current: L={}{}% R={}{}%, {})",
+                session.name, cur_l, "%", cur_r, "%", ch
+            );
+
+            print!("Left volume (0-100) [{}]: ", cur_l);
+            io::stdout().flush()?;
+            let mut left_input = String::new();
+            io::stdin().read_line(&mut left_input)?;
+            let left: u32 = if left_input.trim().is_empty() {
+                cur_l
+            } else {
+                match left_input.trim().parse() {
+                    Ok(v) if v <= 100 => v,
+                    Ok(_) => {
+                        println!("Invalid value. Must be 0-100.");
+                        continue;
+                    }
+                    Err(_) => {
+                        println!("Please enter a valid number.");
+                        continue;
+                    }
+                }
+            };
+
+            print!("Right volume (0-100) [{}]: ", cur_r);
+            io::stdout().flush()?;
+            let mut right_input = String::new();
+            io::stdin().read_line(&mut right_input)?;
+            let right: u32 = if right_input.trim().is_empty() {
+                cur_r
+            } else {
+                match right_input.trim().parse() {
+                    Ok(v) if v <= 100 => v,
+                    Ok(_) => {
+                        println!("Invalid value. Must be 0-100.");
+                        continue;
+                    }
+                    Err(_) => {
+                        println!("Please enter a valid number.");
+                        continue;
+                    }
+                }
+            };
+
+            let session_id = sessions[session_index].id;
+            let left_f = left as f32 / 100.0;
+            let right_f = right as f32 / 100.0;
+            if let Err(e) = controller.set_volume(session_id, left_f, right_f) {
+                println!("Failed to set balance: {}", e);
+            } else {
+                println!("Balance set: L={}% R={}", left, right);
+            }
             continue;
         }
 
         if choice == "5" {
             println!("\nDetailed session info:");
             for session in &sessions {
+                let l = (session.left_volume * 100.0).round() as u32;
+                let r = (session.right_volume * 100.0).round() as u32;
+                let ch = if session.channel_count <= 1 {
+                    "mono"
+                } else {
+                    "stereo"
+                };
                 println!(
-                    "  {} (ID: {}, PID: {}, Device: {:?}, Volume: {:.2}, Mute: {})",
-                    session.name,
-                    session.id,
-                    session.pid,
-                    session.device,
-                    session.volume,
-                    session.mute
+                    "  {} (ID: {}, PID: {}, Device: {:?}, L:{}% R:{}% {}, Mute: {})",
+                    session.name, session.id, session.pid, session.device, l, r, ch, session.mute
                 );
             }
             continue;
@@ -236,39 +174,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         if sessions.is_empty() {
             println!("No sessions to act on.");
-
             continue;
         }
 
         print!("Select session number (1-{}): ", sessions.len());
-
         io::stdout().flush()?;
 
         let mut session_input = String::new();
-
         io::stdin().read_line(&mut session_input)?;
 
         let session_index: usize = match session_input.trim().parse() {
             Ok(num) if (1..=sessions.len()).contains(&num) => num - 1,
-
             Ok(_) => {
                 println!(
                     "Invalid session number. Must be between 1 and {}.",
                     sessions.len()
                 );
-
                 continue;
             }
-
             Err(_) => {
                 println!("Please enter a valid number.");
-
                 continue;
             }
         };
 
         let session = &sessions[session_index];
-
         let session_id = session.id;
 
         match choice {
@@ -313,7 +243,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
                     );
                 } else {
                     println!("Warning: Session no longer exists (application may have closed)");
-
                     sessions.remove(session_index);
                     if sessions.is_empty() {
                         println!("No more sessions. Exiting...");
@@ -328,6 +257,42 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     Ok(())
+}
+
+fn print_sessions(sessions: &[audio_controller::Session]) {
+    println!("\nActive sessions:");
+    println!(
+        "{:<4} {:<12} {:<20} {}",
+        "#", "PID", "Device", "Application"
+    );
+    println!("{}", "-".repeat(60));
+    for (i, session) in sessions.iter().enumerate() {
+        let pid = if session.pid > 0 {
+            session.pid.to_string()
+        } else {
+            "system".to_string()
+        };
+        let device = session.device.as_deref().unwrap_or("unknown");
+        let l = (session.left_volume * 100.0).round() as u32;
+        let r = (session.right_volume * 100.0).round() as u32;
+        let ch = if session.channel_count <= 1 {
+            "mono"
+        } else {
+            "stereo"
+        };
+        let mute = if session.mute { "MUTED" } else { "audible" };
+        println!(
+            "{:<4} {:<12} {:<20} {} (L:{}% R:{}% {}, {})",
+            i + 1,
+            pid,
+            device,
+            session.name,
+            l,
+            r,
+            ch,
+            mute
+        );
+    }
 }
 
 #[cfg(target_os = "android")]

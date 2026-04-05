@@ -91,6 +91,8 @@ impl LinuxController {
             name: String::new(),
             pid: 0,
             volume: 1.0,
+            left_volume: 1.0,
+            right_volume: 1.0,
             mute: false,
             device: None,
             channel_count: 0,
@@ -113,6 +115,8 @@ impl LinuxController {
                     name: String::new(),
                     pid: 0,
                     volume: 1.0,
+                    left_volume: 1.0,
+                    right_volume: 1.0,
                     mute: false,
                     device: None,
                     channel_count: 0,
@@ -136,19 +140,24 @@ impl LinuxController {
                         current.device = Some(device.to_string());
                     }
                 } else if line.starts_with("volume:") {
-                    let channel_count = line.split(',').count();
-                    if channel_count > 0 {
-                        current.channel_count = channel_count as u32;
-                    }
+                    let channels: Vec<&str> = line.split(',').collect();
+                    current.channel_count = channels.len() as u32;
 
-                    if let Some(percent_part) = line.split(',').next() {
-                        if let Some(percent_str) = percent_part.split('%').next() {
+                    let mut vols = Vec::new();
+                    for ch in &channels {
+                        if let Some(percent_str) = ch.split('%').next() {
                             if let Some(vol_str) = percent_str.split('/').next_back() {
                                 if let Ok(vol) = vol_str.trim().parse::<u32>() {
-                                    current.volume = (vol as f32 / 100.0).clamp(0.0, 1.0);
+                                    vols.push((vol as f32 / 100.0).clamp(0.0, 1.0));
                                 }
                             }
                         }
+                    }
+
+                    if !vols.is_empty() {
+                        current.left_volume = *vols.first().unwrap_or(&1.0);
+                        current.right_volume = *vols.get(1).unwrap_or(&current.left_volume);
+                        current.volume = vols.iter().sum::<f32>() / vols.len() as f32;
                     }
                 } else if line.starts_with("Mute:") {
                     if let Some(mute_str) = line.strip_prefix("Mute:") {
@@ -222,6 +231,8 @@ impl AudioController for LinuxController {
 
         if let Some(session) = self.sessions.get_mut(&id) {
             session.volume = avg as f32 / 100.0;
+            session.left_volume = left;
+            session.right_volume = right;
         }
 
         Ok(())

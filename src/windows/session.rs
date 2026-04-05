@@ -8,19 +8,14 @@ use windows::Win32::Media::Audio::{
 
 pub struct WindowsSession {
     pub id: u32,
-
     pub name: String,
-
     pub pid: u32,
-
     pub volume: f32,
-
+    pub left_volume: f32,
+    pub right_volume: f32,
     pub mute: bool,
-
     pub device: Option<String>,
-
     pub channel_count: u32,
-
     session_control: Option<IAudioSessionControl2>,
 }
 
@@ -45,26 +40,30 @@ impl WindowsSession {
 
         let mute = simple_vol.GetMute()?.into();
 
-        let channel_count = match <IAudioSessionControl2 as windows::core::Interface>::cast::<
-            IChannelAudioVolume,
-        >(&session_control)
-        {
-            Ok(channel_vol) => {
-                let channels = channel_vol.GetChannelCount()?;
-                if channels == 0 {
-                    0
-                } else {
-                    channels
+        let (channel_count, left_volume, right_volume) =
+            match <IAudioSessionControl2 as windows::core::Interface>::cast::<IChannelAudioVolume>(
+                &session_control,
+            ) {
+                Ok(channel_vol) => {
+                    let channels = channel_vol.GetChannelCount()?;
+                    if channels == 0 {
+                        (0, volume, volume)
+                    } else {
+                        let left = channel_vol.GetChannelVolume(0).unwrap_or(volume);
+                        let right = channel_vol.GetChannelVolume(1).unwrap_or(left);
+                        (channels, left, right)
+                    }
                 }
-            }
-            Err(_) => 0,
-        };
+                Err(_) => (0, volume, volume),
+            };
 
         Ok(Self {
             id,
             name,
             pid,
             volume,
+            left_volume,
+            right_volume,
             mute,
             device: Some(device_name.to_string()),
             channel_count,
@@ -154,15 +153,25 @@ impl WindowsSession {
         let volume = simple_vol.GetMasterVolume()?;
         let mute = simple_vol.GetMute()?.into();
 
+        let (left_volume, right_volume) = match self.get_channel_volume() {
+            Ok(channel_vol) => {
+                let left = channel_vol.GetChannelVolume(0).unwrap_or(volume);
+                let right = channel_vol.GetChannelVolume(1).unwrap_or(left);
+                (left, right)
+            }
+            Err(_) => (volume, volume),
+        };
+
         Ok(Self {
             id: self.id,
             name: self.name.clone(),
             pid: self.pid,
             volume,
+            left_volume,
+            right_volume,
             mute,
             device: self.device.clone(),
             channel_count: self.channel_count,
-
             session_control: self.session_control.clone(),
         })
     }
@@ -179,6 +188,8 @@ impl Clone for WindowsSession {
             name: self.name.clone(),
             pid: self.pid,
             volume: self.volume,
+            left_volume: self.left_volume,
+            right_volume: self.right_volume,
             mute: self.mute,
             device: self.device.clone(),
             channel_count: self.channel_count,

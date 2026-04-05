@@ -7,17 +7,13 @@ use crate::windows::WindowsError;
 
 pub struct Session {
     pub id: u32,
-
     pub name: String,
-
     pub pid: u32,
-
     pub volume: f32,
-
+    pub left_volume: f32,
+    pub right_volume: f32,
     pub mute: bool,
-
     pub device: Option<String>,
-
     pub channel_count: u32,
 }
 
@@ -122,32 +118,24 @@ mod tests {
                 sessions: vec![
                     Session {
                         id: 1,
-
                         name: "Test App 1".to_string(),
-
                         pid: 1234,
-
                         volume: 0.5,
-
+                        left_volume: 0.5,
+                        right_volume: 0.5,
                         mute: false,
-
                         device: Some("default".to_string()),
-
                         channel_count: 2,
                     },
                     Session {
                         id: 2,
-
                         name: "Test App 2".to_string(),
-
                         pid: 5678,
-
                         volume: 1.0,
-
+                        left_volume: 1.0,
+                        right_volume: 1.0,
                         mute: true,
-
                         device: None,
-
                         channel_count: 2,
                     },
                 ],

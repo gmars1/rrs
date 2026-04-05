@@ -99,17 +99,13 @@ impl AudioController for WindowsController {
             .iter()
             .map(|ws| Session {
                 id: ws.id,
-
                 name: ws.name.clone(),
-
                 pid: ws.pid,
-
                 volume: ws.volume,
-
+                left_volume: ws.left_volume,
+                right_volume: ws.right_volume,
                 mute: ws.mute,
-
                 device: ws.device.clone(),
-
                 channel_count: ws.channel_count,
             })
             .collect())
