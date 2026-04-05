@@ -10,6 +10,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut controller =
         DefaultController::new().map_err(|e| format!("Failed to create controller: {}", e))?;
 
+    #[cfg(target_os = "linux")]
+    {
+        eprintln!(
+            "[DEBUG] Linux controller created, device: {}",
+            controller.device_name()
+        );
+    }
+
     #[cfg(target_os = "windows")]
     {
         eprintln!("[DEBUG] Windows controller created successfully");

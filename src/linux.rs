@@ -1,7 +1,14 @@
 use std::collections::HashMap;
-use std::process::Command;
+use std::process::{Command, Stdio};
+use std::sync::mpsc;
+use std::thread;
+use std::time::Duration;
 
 use super::{AudioController, ControllerError, Session};
+
+const PACTL_TIMEOUT: Duration = Duration::from_secs(5);
+
+const PACTL_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct LinuxController {
     sessions: HashMap<u32, Session>,
@@ -36,10 +43,28 @@ impl LinuxController {
     }
 
     fn run_pactl(args: &[&str]) -> Result<String, ControllerError> {
-        let output = Command::new("pactl")
+        let mut child = Command::new("pactl")
             .args(args)
-            .output()
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
+            .spawn()
             .map_err(|e| ControllerError::PlatformError(e.to_string()))?;
+
+        let (tx, rx) = mpsc::channel();
+
+        thread::spawn(move || {
+            let result = child.wait_with_output();
+            let _ = tx.send(result);
+        });
+
+        let output = rx.recv_timeout(PACTL_TIMEOUT).map_err(|_| {
+            let _ = child.kill();
+            ControllerError::PlatformError(format!(
+                "pactl {:?} timed out after {}s",
+                args,
+                PACTL_TIMEOUT.as_secs()
+            ))
+        })??;
 
         if !output.status.success() {
             let err = String::from_utf8_lossy(&output.stderr);

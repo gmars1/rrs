@@ -24,20 +24,29 @@ pub struct WindowsController {
 
 impl WindowsController {
     pub fn new() -> Result<Self, ControllerError> {
+        eprintln!("[DEBUG] WindowsController::new - starting");
         let com_guard = utils::ComGuard::new().map_err(|e| {
             ControllerError::PlatformError(format!("COM initialization failed: {}", e))
         })?;
+        eprintln!("[DEBUG] ComGuard created");
 
+        eprintln!("[DEBUG] Creating SessionEnumerator...");
         let enumerator = SessionEnumerator::new().map_err(|e| {
             ControllerError::PlatformError(format!("Failed to create enumerator: {}", e))
         })?;
+        eprintln!("[DEBUG] SessionEnumerator created");
 
         let mut controller = Self {
             enumerator: Arc::new(Mutex::new(enumerator)),
             device_name: String::new(),
             _com_guard: com_guard,
         };
+        eprintln!("[DEBUG] Refreshing sessions...");
         controller.refresh_sessions()?;
+        eprintln!(
+            "[DEBUG] Sessions refreshed, device: {}",
+            controller.device_name
+        );
         Ok(controller)
     }
 
