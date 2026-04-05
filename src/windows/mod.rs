@@ -129,11 +129,7 @@ impl AudioController for WindowsController {
             enumerator.refresh().map_err(|e| ControllerError::from(e))?;
         }
 
-        // Update cached device name
-        let enumerator = self
-            .enumerator
-            .lock()
-            .map_err(|_| ControllerError::Other("Mutex poisoned".to_string()))?;
+        // Update cached device name from the same guard (no second lock)
         self.device_name = enumerator.device_name().to_string();
 
         Ok(())
