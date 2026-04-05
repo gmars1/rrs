@@ -1,8 +1,10 @@
-name: Build Windows EXE
+name: Build and Release Windows EXE
 
 on:
   push:
     branches: [ "main", "master" ]
+    tags:
+      - 'v*' # Срабатывает при создании тегов v1.0, v2.0 и т.д.
   pull_request:
     branches: [ "main", "master" ]
 
@@ -10,6 +12,8 @@ jobs:
   build:
     name: Build Release (Windows)
     runs-on: windows-latest
+    outputs:
+      release_tag: ${{ github.ref_name }} # Передаем имя тега в следующий job
 
     steps:
       - name: Checkout repository
@@ -19,21 +23,43 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: stable
-          components: rustfmt, clippy
 
       - name: Rust Cache
         uses: swatinem/rust-cache@v2
-        # Этот экшен автоматически кеширует target/ и ~/.cargo/
 
       - name: Build Release
         run: cargo build --release --locked
-        # --locked гарантирует, что версии зависимостей будут точно как в Cargo.lock
 
       - name: Upload Artifact
         uses: actions/upload-artifact@v4
         with:
           name: audio-controller-windows
-          path: |
-            target/release/*.exe
-          # Можно добавить и *.pdb если нужны отладочные символы
+          path: target/release/*.exe
           if-no-files-found: error
+
+  # НОВЫЙ JOB ДЛЯ РЕЛИЗА
+  release:
+    name: Create GitHub Release
+    needs: build # Ждем, пока билд завершится
+    if: startsWith(github.ref, 'refs/tags/') # Запускаем только если это ПУШ ТЕГА
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download Artifact
+        uses: actions/checkout@v4 # Нужно для контекста, хотя можно и без него
+
+      - name: Get artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: audio-controller-windows
+          path: ./release-files
+
+      - name: Upload to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release-files/*.exe
+          # body: "Автоматическая сборка для Windows" # Можно добавить описание
+          draft: false
+          prerelease: false
