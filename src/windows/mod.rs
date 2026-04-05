@@ -19,11 +19,12 @@ use std::sync::{Arc, Mutex};
 pub struct WindowsController {
     enumerator: Arc<Mutex<SessionEnumerator>>,
     device_name: String,
+    _com_guard: utils::ComGuard,
 }
 
 impl WindowsController {
     pub fn new() -> Result<Self, ControllerError> {
-        let _com_guard = utils::ComGuard::new().map_err(|e| {
+        let com_guard = utils::ComGuard::new().map_err(|e| {
             ControllerError::PlatformError(format!("COM initialization failed: {}", e))
         })?;
 
@@ -34,13 +35,14 @@ impl WindowsController {
         let mut controller = Self {
             enumerator: Arc::new(Mutex::new(enumerator)),
             device_name: String::new(),
+            _com_guard: com_guard,
         };
         controller.refresh_sessions()?;
         Ok(controller)
     }
 
     pub fn with_config(config: EnumeratorConfig) -> Result<Self, ControllerError> {
-        let _com_guard = utils::ComGuard::new().map_err(|e| {
+        let com_guard = utils::ComGuard::new().map_err(|e| {
             ControllerError::PlatformError(format!("COM initialization failed: {}", e))
         })?;
 
@@ -51,6 +53,7 @@ impl WindowsController {
         let mut controller = Self {
             enumerator: Arc::new(Mutex::new(enumerator)),
             device_name: String::new(),
+            _com_guard: com_guard,
         };
         controller.refresh_sessions()?;
         Ok(controller)
@@ -190,6 +193,7 @@ impl Clone for WindowsController {
         Self {
             enumerator: Arc::clone(&self.enumerator),
             device_name: self.device_name.clone(),
+            _com_guard: utils::ComGuard::new().expect("COM reinit failed"),
         }
     }
 }

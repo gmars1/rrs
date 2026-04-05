@@ -95,7 +95,8 @@ impl ComGuard {
         unsafe {
             let hr = CoInitializeEx(None, COINIT_APARTMENTTHREADED);
             if hr.is_ok() {
-                Ok(Self { initialized: true })
+                let initialized = hr.0 == 0;
+                Ok(Self { initialized })
             } else {
                 Err(hr.into())
             }

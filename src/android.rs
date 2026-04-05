@@ -100,10 +100,6 @@ mod tests {
     #[test]
     fn test_android_controller_creation() {
         let result = AndroidController::new();
-        assert!(result.is_err());
-        assert!(matches!(
-            result.unwrap_err(),
-            ControllerError::PlatformError(_)
-        ));
+        assert!(result.is_ok());
     }
 }

@@ -125,7 +125,7 @@ impl SessionEnumerator {
                 Ok(None) => continue,
 
                 Err(e) => {
-                    eprintln!("Warning: Failed to get session {}: {}", i, e);
+                    log::warn!("Failed to get session {}: {}", i, e);
                 }
             }
         }

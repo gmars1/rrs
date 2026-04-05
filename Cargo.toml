@@ -6,6 +6,7 @@ description = "Cross-platform audio session controller for Linux, Windows, and A
 license = "MIT OR Apache-2.0"
 
 [dependencies]
+log = "0.4"
 
 
 [target.'cfg(target_os = "windows")'.dependencies]
