@@ -7,33 +7,22 @@ license = "MIT OR Apache-2.0"
 
 [dependencies]
 log = "0.4"
-
+ratatui = "0.29"
+crossterm = "0.28"
 
 [target.'cfg(target_os = "windows")'.dependencies]
-
-
 windows = { version = "0.58", features = [
-
     "Win32_Foundation",
-
     "Win32_Media_Audio",
-
     "Win32_System_Com",
-
     "Win32_System_Com_StructuredStorage",
-
     "Win32_System_Threading",
-
     "Win32_System_ProcessStatus",
-
     "Win32_UI_Shell_PropertiesSystem",
-
     "Win32_Devices_DeviceAndDriverInstallation",
     "Win32_Devices_FunctionDiscovery",
     "Win32_System_Variant",
 ] }
-
-
 
 [target.'cfg(target_os = "linux")'.dependencies]
 
@@ -44,7 +33,7 @@ ndk-sys = "0.5"
 android_log = "0.1"
 
 [profile.release]
-opt-level = "z"  # Максимальное сжатие
+opt-level = "z"
 lto = true
 codegen-units = 1
 panic = "abort"
