@@ -22,6 +22,7 @@ mod tui_app {
     enum AppMode {
         Normal,
         Editing,
+        Help,
     }
 
     #[derive(Clone, Copy, PartialEq)]
@@ -111,8 +112,11 @@ mod tui_app {
 
                     match app.mode {
                         AppMode::Normal => match key.code {
-                            KeyCode::Char('q') | KeyCode::Esc => {
+                            KeyCode::Char('q') => {
                                 app.running = false;
+                            }
+                            KeyCode::Char('h') | KeyCode::Char('?') => {
+                                app.mode = AppMode::Help;
                             }
                             KeyCode::Down | KeyCode::Char('j') => {
                                 if !app.sessions.is_empty() {
@@ -165,6 +169,9 @@ mod tui_app {
                             }
                             _ => {}
                         },
+                        AppMode::Help => {
+                            app.mode = AppMode::Normal;
+                        }
                         AppMode::Editing => match key.code {
                             KeyCode::Enter => {
                                 apply_input(controller, app);
@@ -199,6 +206,14 @@ mod tui_app {
 
     fn apply_input(controller: &mut impl AudioController, app: &mut App) {
         if app.sessions.is_empty() {
+            app.mode = AppMode::Normal;
+            app.editing = EditingField::None;
+            app.input_buffer.clear();
+            return;
+        }
+
+        if app.input_buffer.is_empty() {
+            app.set_message("Enter a value".into());
             return;
         }
 
@@ -287,7 +302,7 @@ mod tui_app {
                     .add_modifier(Modifier::BOLD),
             )),
             Line::from(Span::styled(
-                " Up/Down: navigate | v: volume | b: balance | m: mute | r: refresh | q: quit",
+                " Up/Down: navigate | v: volume | b: balance | m: mute | r: refresh | h: help | q: quit",
                 Style::default().fg(Color::DarkGray),
             )),
         ])
@@ -376,7 +391,7 @@ mod tui_app {
         }
 
         if app.mode == AppMode::Editing {
-            let popup_area = centered_rect(40, 3, f.area());
+            let popup_area = centered_rect(45, 5, f.area());
             f.render_widget(Clear, popup_area);
 
             let label = match app.editing {
@@ -386,10 +401,18 @@ mod tui_app {
                 EditingField::None => "",
             };
 
+            let session = &app.sessions[app.selected];
+            let cur_l = (session.left_volume * 100.0).round() as u32;
+            let cur_r = (session.right_volume * 100.0).round() as u32;
+
             let popup = Paragraph::new(vec![
                 Line::from(Span::styled(label, Style::default().fg(Color::Cyan))),
                 Line::from(Span::styled(
-                    &app.input_buffer,
+                    format!("Current: L={}% R={}%  |  New value:", cur_l, cur_r),
+                    Style::default().fg(Color::DarkGray),
+                )),
+                Line::from(Span::styled(
+                    format!("> {}_", app.input_buffer),
                     Style::default()
                         .fg(Color::White)
                         .add_modifier(Modifier::BOLD),
@@ -398,6 +421,68 @@ mod tui_app {
             .block(Block::default().borders(Borders::ALL).title(" Input "))
             .alignment(ratatui::layout::Alignment::Center);
             f.render_widget(popup, popup_area);
+        }
+
+        if app.mode == AppMode::Help {
+            let popup_area = centered_rect(60, 55, f.area());
+            f.render_widget(Clear, popup_area);
+
+            let help_text = vec![
+                Line::from(Span::styled(
+                    " Keyboard Shortcuts ",
+                    Style::default()
+                        .fg(Color::Cyan)
+                        .add_modifier(Modifier::BOLD),
+                )),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "  Up/Down or j/k    Navigate sessions",
+                    Style::default().fg(Color::White),
+                )),
+                Line::from(Span::styled(
+                    "  v                 Set volume (0-100)",
+                    Style::default().fg(Color::White),
+                )),
+                Line::from(Span::styled(
+                    "  b                 Set balance L/R",
+                    Style::default().fg(Color::White),
+                )),
+                Line::from(Span::styled(
+                    "  m                 Toggle mute",
+                    Style::default().fg(Color::White),
+                )),
+                Line::from(Span::styled(
+                    "  r                 Refresh sessions",
+                    Style::default().fg(Color::White),
+                )),
+                Line::from(Span::styled(
+                    "  h or ?            Show this help",
+                    Style::default().fg(Color::White),
+                )),
+                Line::from(Span::styled(
+                    "  q                 Quit",
+                    Style::default().fg(Color::White),
+                )),
+                Line::from(""),
+                Line::from(Span::styled(
+                    "  Enter             Confirm input",
+                    Style::default().fg(Color::White),
+                )),
+                Line::from(Span::styled(
+                    "  Esc               Cancel / Close help",
+                    Style::default().fg(Color::White),
+                )),
+                Line::from(""),
+                Line::from(Span::styled(
+                    " Press any key to close",
+                    Style::default().fg(Color::DarkGray),
+                )),
+            ];
+
+            let help = Paragraph::new(help_text)
+                .block(Block::default().borders(Borders::ALL).title(" Help "))
+                .alignment(ratatui::layout::Alignment::Left);
+            f.render_widget(help, popup_area);
         }
 
         if !app.message.is_empty() {
