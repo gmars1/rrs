@@ -128,7 +128,7 @@ mod tui_app {
                                     app.selected = app
                                         .selected
                                         .checked_sub(1)
-                                        .unwrap_or(app.sessions.len() - 1);
+                                        .unwrap_or(app.sessions.len().saturating_sub(1));
                                 }
                             }
                             KeyCode::Char('r') => {
