@@ -419,12 +419,12 @@ mod tui_app {
                 Line::from(Span::styled(
                     format!("> {}_", app.input_buffer),
                     Style::default()
-                        .fg(Color::White)
+                        .fg(Color::Yellow)
                         .add_modifier(Modifier::BOLD),
                 )),
             ])
             .block(Block::default().borders(Borders::ALL).title(" Input "))
-            .alignment(ratatui::layout::Alignment::Center);
+            .alignment(ratatui::layout::Alignment::Left);
             f.render_widget(popup, popup_area);
         }
 
