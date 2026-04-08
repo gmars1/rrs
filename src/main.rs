@@ -252,6 +252,8 @@ mod tui_app {
                 if let Err(e) = controller.set_volume(session.id, left, right) {
                     app.set_message(format!("Balance failed: {e}"));
                 } else {
+                    // Refresh sessions to get updated left_volume
+                    app.sessions = controller.list_sessions().unwrap_or_default();
                     app.editing = EditingField::BalanceRight;
                     app.input_buffer.clear();
                     app.set_message("Enter Right (0-100)".into());
@@ -263,6 +265,9 @@ mod tui_app {
                     app.set_message("Value must be 0-100".into());
                     return;
                 }
+                // Refresh sessions first to get the updated left_volume from BalanceLeft step
+                app.sessions = controller.list_sessions().unwrap_or_default();
+                let session = &app.sessions[app.selected];
                 let left = session.left_volume;
                 let right = value as f32 / 100.0;
                 if let Err(e) = controller.set_volume(session.id, left, right) {
@@ -270,7 +275,7 @@ mod tui_app {
                 } else {
                     app.set_message(format!(
                         "Balance set: L={}{}% R={value}%",
-                        (session.left_volume * 100.0).round() as u32,
+                        (left * 100.0).round() as u32,
                         "%"
                     ));
                 }
