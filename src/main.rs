@@ -181,9 +181,11 @@ mod tui_app {
                                 app.editing = EditingField::None;
                                 app.input_buffer.clear();
                             }
-                            KeyCode::Char(c) if c.is_ascii_digit() => {
+                            KeyCode::Char('0')..=KeyCode::Char('9') => {
                                 if app.input_buffer.len() < 3 {
-                                    app.input_buffer.push(c);
+                                    if let KeyCode::Char(c) = key.code {
+                                        app.input_buffer.push(c);
+                                    }
                                 }
                             }
                             KeyCode::Backspace => {
